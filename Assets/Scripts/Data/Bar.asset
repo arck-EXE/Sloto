@@ -14,4 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   symbolName: Bar
   sprite: {fileID: 21300000, guid: 5416500a15ab03b47b5f4a718c05a651, type: 3}
-  payoutValue: 500
+  weight: 15
+  payout2: 5
+  payout3: 10

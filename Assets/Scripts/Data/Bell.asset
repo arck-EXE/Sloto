@@ -14,4 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   symbolName: Bell
   sprite: {fileID: -2391669244243282240, guid: e9bd1cf099881d64092aabb1e15aa6ad, type: 3}
-  payoutValue: 20
+  weight: 25
+  payout2: 2
+  payout3: 5

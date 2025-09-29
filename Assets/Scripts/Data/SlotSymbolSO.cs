@@ -5,5 +5,8 @@ public class SlotSymbolSO : ScriptableObject
 {
     public string symbolName;
     public Sprite sprite;
-    public int payoutValue; 
+    public int weight; 
+    public int payout2;
+    public int payout3;
+    
 }

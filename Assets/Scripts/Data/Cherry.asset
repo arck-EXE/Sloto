@@ -14,4 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   symbolName: Cherry
   sprite: {fileID: -5620835742497143143, guid: 8280e4e016dfb394c90c3cf446ec3131, type: 3}
-  payoutValue: 5
+  weight: 50
+  payout2: 1
+  payout3: 2
