@@ -91,15 +91,11 @@ public class SlotMachineAnimator : MonoBehaviour
             foreach (Transform symbol in reelSymbols[reelIndex])
             {
                 float currentY = symbol.localPosition.y;
-
-                // Find nearest grid position
                 float snappedY = Mathf.Round(currentY / step) * step;
 
-                // Force exact zero if very close to center
                 if (Mathf.Abs(currentY) < (step * 0.3f))
                 {
                     snappedY = 0f;
-                    Debug.Log($"Snapped symbol to exact zero on {reel.name}");
                 }
 
                 symbol.localPosition = new Vector3(0, snappedY, 0);
@@ -107,7 +103,6 @@ public class SlotMachineAnimator : MonoBehaviour
         }
 
         isSpinning = false;
-        Debug.Log($"<color=green>Spin complete - symbols snapped to grid</color>");
     }
 
     public bool IsSpinning() => isSpinning;

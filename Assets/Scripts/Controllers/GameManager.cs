@@ -44,23 +44,19 @@ public class GameManager : MonoBehaviour
 
     private void CheckWin()
     {
-        Debug.Log($"<color=cyan>━━━━━━ Checking Win ━━━━━━</color>");
         SlotSymbolSO[] winningSymbols = new SlotSymbolSO[reels.Length];
         bool hasValidSymbols = true;
 
-        // Get winning symbols from each reel
         for (int i = 0; i < reels.Length; i++)
         {
             SymbolHolder winner = reels[i].GetWinningSymbol();
             if (winner != null && winner.symbolData != null)
             {
                 winningSymbols[i] = winner.symbolData;
-                Debug.Log($"Reel {i + 1}: {winner.symbolData.symbolName}");
             }
             else
             {
                 hasValidSymbols = false;
-                Debug.LogError($"No valid symbol found on reel {i + 1}");
                 break;
             }
         }

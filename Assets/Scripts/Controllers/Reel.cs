@@ -49,27 +49,20 @@ public class Reel : MonoBehaviour
 
     public SymbolHolder GetWinningSymbol()
     {
-        SymbolHolder winner = null;
-        float closestToZero = float.MaxValue;
+        SymbolHolder closestSymbol = null;
+        float closestDistance = float.MaxValue;
 
-        foreach (var symbol in symbols)
+        foreach (Transform child in transform)
         {
-            float distanceToWinLine = Mathf.Abs(symbol.transform.localPosition.y);
-            if (distanceToWinLine < closestToZero)
+            float distanceToWinLine = Mathf.Abs(child.localPosition.y);
+            if (distanceToWinLine < closestDistance)
             {
-                closestToZero = distanceToWinLine;
-                winner = symbol;
+                closestDistance = distanceToWinLine;
+                closestSymbol = child.GetComponent<SymbolHolder>();
             }
         }
 
-        if (closestToZero <= 0.1f && winner != null)
-        {
-            Debug.Log($"{name}: Found {winner.symbolData.symbolName} at y={winner.transform.localPosition.y:F3}");
-            return winner;
-        }
-
-        Debug.LogWarning($"{name}: No symbol at y=0. Closest was {closestToZero:F3} units away");
-        return null;
+        return (closestDistance <= 0.1f) ? closestSymbol : null;
     }
 
     public void UpdateSymbolSprite(Transform symbolTransform, SlotSymbolSO newSymbol)
@@ -79,14 +72,5 @@ public class Reel : MonoBehaviour
         {
             spriteRenderer.sprite = newSymbol.sprite;
         }
-    }
-
-    private void OnDrawGizmos()
-    {
-        // Draw win line position
-        Gizmos.color = Color.yellow;
-        Vector3 lineStart = transform.position + Vector3.left * 0.5f;
-        Vector3 lineEnd = transform.position + Vector3.right * 0.5f;
-        Gizmos.DrawLine(lineStart, lineEnd);
     }
 }
