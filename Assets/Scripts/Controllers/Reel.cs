@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class Reel : MonoBehaviour
 {
@@ -9,11 +7,13 @@ public class Reel : MonoBehaviour
     public List<SlotSymbolSO> availableSymbols;
     public GameObject symbolPrefab;
     public int numberOfSymbols = 10;
-    public float symbolHeight = 100f;
-    public float spacing = 10f; // spacing between symbols
-    public float maxSpinSpeed = 300f;
+    public int visibleCount = 3;
+    public float symbolHeight = 1f;
+    public float spacing = 0.1f;
+    public float maxSpinSpeed = 3f;
 
-    [HideInInspector] public List<Image> symbols = new List<Image>();
+    [HideInInspector] public List<SymbolHolder> symbols = new List<SymbolHolder>();
+    [HideInInspector] public SlotSymbolSO[] visibleSymbols;
 
     void Start()
     {
@@ -22,27 +22,56 @@ public class Reel : MonoBehaviour
 
     void SpawnInitialSymbols()
     {
+        if (symbolPrefab == null)
+        {
+            Debug.LogError($"Symbol prefab is not assigned on {gameObject.name}!");
+            return;
+        }
+
+        if (availableSymbols == null || availableSymbols.Count == 0)
+        {
+            Debug.LogError($"No available symbols assigned on {gameObject.name}!");
+            return;
+        }
+
         foreach (Transform child in transform)
             Destroy(child.gameObject);
 
         symbols.Clear();
+        visibleSymbols = new SlotSymbolSO[visibleCount];
+
+        float startY = (numberOfSymbols / 2f) * (symbolHeight + spacing);
 
         for (int i = 0; i < numberOfSymbols; i++)
         {
-            SlotSymbolSO symbolData = GetRandomSymbol();
+            SlotSymbolSO symbolData = GetRandomWeightedSymbol();
             GameObject symbolGO = Instantiate(symbolPrefab, transform);
-            Image img = symbolGO.GetComponent<Image>();
-            img.sprite = symbolData.sprite;
-
-            // place in vertical order
-            RectTransform rt = symbolGO.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(0, -i * (symbolHeight + spacing));
-
-            symbols.Add(img);
+            
+            // Ensure SpriteRenderer exists
+            SpriteRenderer renderer = symbolGO.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                renderer = symbolGO.AddComponent<SpriteRenderer>();
+            }
+            
+            // Position symbol
+            symbolGO.transform.localPosition = new Vector3(0, startY - (i * (symbolHeight + spacing)), 0);
+            
+            // Setup SymbolHolder
+            SymbolHolder holder = symbolGO.GetComponent<SymbolHolder>();
+            if (holder == null)
+            {
+                holder = symbolGO.AddComponent<SymbolHolder>();
+            }
+            
+            holder.SetSymbol(symbolData);
+            symbols.Add(holder);
+            
+            Debug.Log($"Spawned symbol {symbolData.symbolName} at position {symbolGO.transform.localPosition}");
         }
     }
 
-    SlotSymbolSO GetRandomSymbol()
+    public SlotSymbolSO GetRandomWeightedSymbol()
     {
         int totalWeight = 0;
         foreach (var s in availableSymbols)
@@ -50,64 +79,37 @@ public class Reel : MonoBehaviour
 
         int roll = Random.Range(0, totalWeight);
         int cumulative = 0;
-
         foreach (var s in availableSymbols)
         {
             cumulative += s.weight;
             if (roll < cumulative) return s;
         }
 
-        return availableSymbols[0];
+        return availableSymbols[0]; // fallback
     }
 
-    public void RecycleTopSymbol()
+    public void SetVisibleSymbols(SlotSymbolSO[] resultSymbols)
     {
-        if (symbols.Count == 0) return;
-
-        // Move the top symbol to the bottom
-        Image top = symbols[0];
-        symbols.RemoveAt(0);
-        symbols.Add(top);
-
-        RectTransform rt = top.rectTransform;
-        float bottomY = symbols[symbols.Count - 2].rectTransform.anchoredPosition.y - (symbolHeight + spacing);
-        rt.anchoredPosition = new Vector2(0, bottomY);
-
-        // Assign a new random sprite
-        top.sprite = GetRandomSymbol().sprite;
+        visibleSymbols = resultSymbols;
+        for (int i = 0; i < visibleCount; i++)
+        {
+            symbols[i].SetSymbol(visibleSymbols[i]);
+        }
     }
 
-    public IEnumerator SpinRoutine(float duration)
+    public SlotSymbolSO GetVisibleSymbol(int rowIndex)
     {
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            float t = elapsed / duration;
-            float speed = Mathf.Lerp(maxSpinSpeed, 40f, t);
+        if (rowIndex < 0 || rowIndex >= visibleCount) return null;
+        return visibleSymbols[rowIndex];
+    }
 
-            foreach (var img in symbols)
-            {
-                RectTransform rt = img.rectTransform;
-                rt.anchoredPosition -= new Vector2(0, speed * Time.deltaTime);
-
-                // recycle symbol if it goes below the bottom
-                if (rt.anchoredPosition.y < - (symbolHeight + spacing) * (numberOfSymbols - 1))
-                {
-                    rt.anchoredPosition = new Vector2(0, rt.anchoredPosition.y + (symbolHeight + spacing) * numberOfSymbols);
-                    img.sprite = GetRandomSymbol().sprite;
-                }
-            }
-
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        // snap-align to nearest row
-        float offset = symbols[0].rectTransform.anchoredPosition.y % (symbolHeight + spacing);
-        foreach (var img in symbols)
-        {
-            RectTransform rt = img.rectTransform;
-            rt.anchoredPosition = new Vector2(0, rt.anchoredPosition.y - offset);
-        }
+    public void RecycleSymbol(SymbolHolder symbol)
+    {
+        float bottomY = -((symbolHeight + spacing) * (numberOfSymbols - 1));
+        symbol.transform.localPosition = new Vector3(0, bottomY, 0);
+        
+        // Assign new random symbol
+        SlotSymbolSO newSymbol = GetRandomWeightedSymbol();
+        symbol.SetSymbol(newSymbol);
     }
 }

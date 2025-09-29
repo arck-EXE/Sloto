@@ -5,8 +5,8 @@ public class SlotMachineAnimator : MonoBehaviour
 {
     [Header("Spin Settings")]
     public Reel[] reels;
-    public float spinTime = 3f; 
-    public float spinSpeed = 500f; 
+    public float spinTime = 3f;
+    public float spinSpeed = 5f;
 
     private bool isSpinning = false;
 
@@ -27,15 +27,17 @@ public class SlotMachineAnimator : MonoBehaviour
 
             foreach (var reel in reels)
             {
-                reel.transform.localPosition += Vector3.up * delta;
-
-                float upperLimit = (reel.symbolHeight + reel.spacing) * (reel.symbols.Count / 2f);
-
-                foreach (var img in reel.symbols)
+                // Move reel up
+                foreach (var symbol in reel.symbols)
                 {
-                    RectTransform rt = img.rectTransform;
-                    if (rt.anchoredPosition.y > upperLimit)
-                        reel.RecycleTopSymbol();
+                    symbol.transform.localPosition += Vector3.up * delta;
+                    
+                    // Check if symbol needs recycling
+                    float upperLimit = (reel.symbolHeight + reel.spacing) * 2;
+                    if (symbol.transform.localPosition.y > upperLimit)
+                    {
+                        reel.RecycleSymbol(symbol);
+                    }
                 }
             }
 
@@ -43,14 +45,26 @@ public class SlotMachineAnimator : MonoBehaviour
             yield return null;
         }
 
-        //Snap reels to nearest symbol
+        // Snap to grid
         foreach (var reel in reels)
         {
-            float step = reel.symbolHeight + reel.spacing;
-            float offset = reel.transform.localPosition.y % step;
-            reel.transform.localPosition -= new Vector3(0, offset, 0);
+            foreach (var symbol in reel.symbols)
+            {
+                float step = reel.symbolHeight + reel.spacing;
+                float offset = symbol.transform.localPosition.y % step;
+                symbol.transform.localPosition = new Vector3(
+                    symbol.transform.localPosition.x,
+                    symbol.transform.localPosition.y - offset,
+                    symbol.transform.localPosition.z
+                );
+            }
         }
 
         isSpinning = false;
+    }
+    
+    public bool IsSpinning()
+    {
+        return isSpinning;
     }
 }
