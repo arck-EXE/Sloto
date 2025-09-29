@@ -3,71 +3,31 @@ using UnityEngine;
 
 public class Reel : MonoBehaviour
 {
-    [Header("Reel Settings")]
     public List<SlotSymbolSO> availableSymbols;
     public GameObject symbolPrefab;
     public int numberOfSymbols = 10;
-    public int visibleCount = 3;
     public float symbolHeight = 1f;
     public float spacing = 0.1f;
-    public float maxSpinSpeed = 3f;
 
     [HideInInspector] public List<SymbolHolder> symbols = new List<SymbolHolder>();
-    [HideInInspector] public SlotSymbolSO[] visibleSymbols;
 
     void Start()
     {
-        SpawnInitialSymbols();
+        SpawnSymbols();
     }
 
-    void SpawnInitialSymbols()
+    void SpawnSymbols()
     {
-        if (symbolPrefab == null)
-        {
-            Debug.LogError($"Symbol prefab is not assigned on {gameObject.name}!");
-            return;
-        }
-
-        if (availableSymbols == null || availableSymbols.Count == 0)
-        {
-            Debug.LogError($"No available symbols assigned on {gameObject.name}!");
-            return;
-        }
-
-        foreach (Transform child in transform)
-            Destroy(child.gameObject);
-
-        symbols.Clear();
-        visibleSymbols = new SlotSymbolSO[visibleCount];
-
         float startY = (numberOfSymbols / 2f) * (symbolHeight + spacing);
 
         for (int i = 0; i < numberOfSymbols; i++)
         {
-            SlotSymbolSO symbolData = GetRandomWeightedSymbol();
             GameObject symbolGO = Instantiate(symbolPrefab, transform);
-            
-            // Ensure SpriteRenderer exists
-            SpriteRenderer renderer = symbolGO.GetComponent<SpriteRenderer>();
-            if (renderer == null)
-            {
-                renderer = symbolGO.AddComponent<SpriteRenderer>();
-            }
-            
-            // Position symbol
             symbolGO.transform.localPosition = new Vector3(0, startY - (i * (symbolHeight + spacing)), 0);
-            
-            // Setup SymbolHolder
-            SymbolHolder holder = symbolGO.GetComponent<SymbolHolder>();
-            if (holder == null)
-            {
-                holder = symbolGO.AddComponent<SymbolHolder>();
-            }
-            
-            holder.SetSymbol(symbolData);
+
+            var holder = symbolGO.GetComponent<SymbolHolder>();
+            holder.SetSymbol(GetRandomWeightedSymbol());
             symbols.Add(holder);
-            
-            Debug.Log($"Spawned symbol {symbolData.symbolName} at position {symbolGO.transform.localPosition}");
         }
     }
 
@@ -84,32 +44,49 @@ public class Reel : MonoBehaviour
             cumulative += s.weight;
             if (roll < cumulative) return s;
         }
-
-        return availableSymbols[0]; // fallback
+        return availableSymbols[0];
     }
 
-    public void SetVisibleSymbols(SlotSymbolSO[] resultSymbols)
+    public SymbolHolder GetWinningSymbol()
     {
-        visibleSymbols = resultSymbols;
-        for (int i = 0; i < visibleCount; i++)
+        SymbolHolder winner = null;
+        float closestToZero = float.MaxValue;
+
+        foreach (var symbol in symbols)
         {
-            symbols[i].SetSymbol(visibleSymbols[i]);
+            float distanceToWinLine = Mathf.Abs(symbol.transform.localPosition.y);
+            if (distanceToWinLine < closestToZero)
+            {
+                closestToZero = distanceToWinLine;
+                winner = symbol;
+            }
+        }
+
+        if (closestToZero <= 0.1f && winner != null)
+        {
+            Debug.Log($"{name}: Found {winner.symbolData.symbolName} at y={winner.transform.localPosition.y:F3}");
+            return winner;
+        }
+
+        Debug.LogWarning($"{name}: No symbol at y=0. Closest was {closestToZero:F3} units away");
+        return null;
+    }
+
+    public void UpdateSymbolSprite(Transform symbolTransform, SlotSymbolSO newSymbol)
+    {
+        var spriteRenderer = symbolTransform.GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null && newSymbol != null)
+        {
+            spriteRenderer.sprite = newSymbol.sprite;
         }
     }
 
-    public SlotSymbolSO GetVisibleSymbol(int rowIndex)
+    private void OnDrawGizmos()
     {
-        if (rowIndex < 0 || rowIndex >= visibleCount) return null;
-        return visibleSymbols[rowIndex];
-    }
-
-    public void RecycleSymbol(SymbolHolder symbol)
-    {
-        float bottomY = -((symbolHeight + spacing) * (numberOfSymbols - 1));
-        symbol.transform.localPosition = new Vector3(0, bottomY, 0);
-        
-        // Assign new random symbol
-        SlotSymbolSO newSymbol = GetRandomWeightedSymbol();
-        symbol.SetSymbol(newSymbol);
+        // Draw win line position
+        Gizmos.color = Color.yellow;
+        Vector3 lineStart = transform.position + Vector3.left * 0.5f;
+        Vector3 lineEnd = transform.position + Vector3.right * 0.5f;
+        Gizmos.DrawLine(lineStart, lineEnd);
     }
 }

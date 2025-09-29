@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class SlotMachineAnimator : MonoBehaviour
@@ -9,11 +10,40 @@ public class SlotMachineAnimator : MonoBehaviour
     public float spinSpeed = 5f;
 
     private bool isSpinning = false;
+    private List<List<Transform>> reelSymbols = new List<List<Transform>>();
+
+    void Start()
+    {
+        CacheReelSymbols();
+    }
+
+    void CacheReelSymbols()
+    {
+        reelSymbols.Clear();
+
+        foreach (var reel in reels)
+        {
+            List<Transform> symbols = new List<Transform>();
+            foreach (Transform child in reel.transform)
+            {
+                SpriteRenderer sr = child.GetComponent<SpriteRenderer>();
+                if (sr != null)
+                {
+                    symbols.Add(child);
+                }
+            }
+            reelSymbols.Add(symbols);
+            //reel.InitializeReel();
+        }
+    }
 
     public void StartSpin()
     {
         if (!isSpinning)
+        {
+            CacheReelSymbols();
             StartCoroutine(SpinRoutine());
+        }
     }
 
     private IEnumerator SpinRoutine()
@@ -25,18 +55,25 @@ public class SlotMachineAnimator : MonoBehaviour
         {
             float delta = spinSpeed * Time.deltaTime;
 
-            foreach (var reel in reels)
+            for (int reelIndex = 0; reelIndex < reels.Length; reelIndex++)
             {
-                // Move reel up
-                foreach (var symbol in reel.symbols)
+                Reel reel = reels[reelIndex];
+                List<Transform> symbols = reelSymbols[reelIndex];
+
+                float step = reel.symbolHeight + reel.spacing;
+                float upperLimit = step * (reel.numberOfSymbols / 2f);
+                float lowerLimit = -upperLimit;
+
+                foreach (Transform symbol in symbols)
                 {
-                    symbol.transform.localPosition += Vector3.up * delta;
-                    
-                    // Check if symbol needs recycling
-                    float upperLimit = (reel.symbolHeight + reel.spacing) * 2;
-                    if (symbol.transform.localPosition.y > upperLimit)
+                    symbol.localPosition += Vector3.up * delta;
+
+                    if (symbol.localPosition.y > upperLimit)
                     {
-                        reel.RecycleSymbol(symbol);
+                        symbol.localPosition = new Vector3(0, lowerLimit, 0);
+
+                        SlotSymbolSO newSymbol = reel.GetRandomWeightedSymbol();
+                        reel.UpdateSymbolSprite(symbol, newSymbol);
                     }
                 }
             }
@@ -45,26 +82,33 @@ public class SlotMachineAnimator : MonoBehaviour
             yield return null;
         }
 
-        // Snap to grid
-        foreach (var reel in reels)
+        // Snap
+        for (int reelIndex = 0; reelIndex < reels.Length; reelIndex++)
         {
-            foreach (var symbol in reel.symbols)
+            Reel reel = reels[reelIndex];
+            float step = reel.symbolHeight + reel.spacing;
+
+            foreach (Transform symbol in reelSymbols[reelIndex])
             {
-                float step = reel.symbolHeight + reel.spacing;
-                float offset = symbol.transform.localPosition.y % step;
-                symbol.transform.localPosition = new Vector3(
-                    symbol.transform.localPosition.x,
-                    symbol.transform.localPosition.y - offset,
-                    symbol.transform.localPosition.z
-                );
+                float currentY = symbol.localPosition.y;
+
+                // Find nearest grid position
+                float snappedY = Mathf.Round(currentY / step) * step;
+
+                // Force exact zero if very close to center
+                if (Mathf.Abs(currentY) < (step * 0.3f))
+                {
+                    snappedY = 0f;
+                    Debug.Log($"Snapped symbol to exact zero on {reel.name}");
+                }
+
+                symbol.localPosition = new Vector3(0, snappedY, 0);
             }
         }
 
         isSpinning = false;
+        Debug.Log($"<color=green>Spin complete - symbols snapped to grid</color>");
     }
-    
-    public bool IsSpinning()
-    {
-        return isSpinning;
-    }
+
+    public bool IsSpinning() => isSpinning;
 }

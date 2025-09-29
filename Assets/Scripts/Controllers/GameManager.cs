@@ -5,101 +5,93 @@ public class GameManager : MonoBehaviour
 {
     public SlotMachineAnimator slotAnimator;
     public Reel[] reels;
-    public int winningLineIndex = 1;
-    public int totalCoins = 0;
+    public int totalCoins = 1000;
+    public int betAmount = 10;
     private bool spinning = false;
+    public SlotUI uiManager;
 
-    private SlotSymbolSO[] stoppedSymbols;
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && !spinning)
+            Spin();
+    }
+
+    private void Start()
+    {
+        uiManager.UpdateBalance(totalCoins);
+    }
 
     public void Spin()
     {
-        if (!spinning)
+        if (totalCoins >= betAmount)
+        {
+            totalCoins -= betAmount;
+            uiManager.UpdateBalance(totalCoins);
             StartCoroutine(SpinRoutine());
+        }
     }
 
     private IEnumerator SpinRoutine()
     {
         spinning = true;
-        stoppedSymbols = new SlotSymbolSO[reels.Length];
-
         slotAnimator.StartSpin();
         yield return new WaitUntil(() => !slotAnimator.IsSpinning());
-
-        Debug.Log("━━━━━━ SPIN RESULT ━━━━━━");
-        string result = "Line: ";
-        bool allSymbolsFound = true;
-
-        for (int i = 0; i < reels.Length; i++)
-        {
-            SymbolHolder[] holders = reels[i].GetComponentsInChildren<SymbolHolder>();
-            bool foundSymbol = false;
-
-            foreach (var holder in holders)
-            {
-                if (holder != null && holder.isInWinningLine && holder.symbolData != null)
-                {
-                    stoppedSymbols[i] = holder.symbolData;
-                    result += $"[{holder.symbolData.symbolName}] ";
-                    foundSymbol = true;
-                    break;
-                }
-            }
-
-            if (!foundSymbol)
-            {
-                result += "[ERROR] ";
-                allSymbolsFound = false;
-                Debug.LogError($"No valid symbol found in winning line for reel {i + 1}");
-            }
-        }
-
-        Debug.Log(result);
-        
-        if (allSymbolsFound)
-        {
-            CalculateResults();
-        }
-        else
-        {
-            Debug.LogError("Skipping win calculation due to missing symbols");
-        }
-
+        yield return new WaitForSeconds(0.2f);
+        CheckWin();
         spinning = false;
     }
 
-    private void CalculateResults()
+    private void CheckWin()
     {
-        // Calculate consecutive matches from left to right
-        SlotSymbolSO firstSymbol = stoppedSymbols[0];
-        int consecutiveCount = 1;
+        Debug.Log($"<color=cyan>━━━━━━ Checking Win ━━━━━━</color>");
+        SlotSymbolSO[] winningSymbols = new SlotSymbolSO[reels.Length];
+        bool hasValidSymbols = true;
 
-        for (int i = 1; i < stoppedSymbols.Length; i++)
+        // Get winning symbols from each reel
+        for (int i = 0; i < reels.Length; i++)
         {
-            if (stoppedSymbols[i] == firstSymbol)
-                consecutiveCount++;
+            SymbolHolder winner = reels[i].GetWinningSymbol();
+            if (winner != null && winner.symbolData != null)
+            {
+                winningSymbols[i] = winner.symbolData;
+                Debug.Log($"Reel {i + 1}: {winner.symbolData.symbolName}");
+            }
+            else
+            {
+                hasValidSymbols = false;
+                Debug.LogError($"No valid symbol found on reel {i + 1}");
+                break;
+            }
+        }
+
+        if (!hasValidSymbols) return;
+
+        // Calculate matches
+        SlotSymbolSO firstSymbol = winningSymbols[0];
+        int matchCount = 1;
+
+        for (int i = 1; i < winningSymbols.Length; i++)
+        {
+            if (winningSymbols[i] == firstSymbol)
+                matchCount++;
             else
                 break;
         }
 
-        // Calculate and display win/loss
+        // Calculate payout
         int payout = 0;
-        if (consecutiveCount == 2) payout = firstSymbol.payout2;
-        else if (consecutiveCount >= 3) payout = firstSymbol.payout3;
+        if (matchCount == 2) payout = firstSymbol.payout2;
+        else if (matchCount == 3) payout = firstSymbol.payout3;
 
-        Debug.Log($"━━━━━━ FINAL RESULT ━━━━━━");
-        
         if (payout > 0)
         {
             totalCoins += payout;
-            Debug.Log($"WIN!\n" +
-                     $"Matching Symbol: {firstSymbol.symbolName}\n" +
-                     $"Match Count: {consecutiveCount}\n" +
-                     $"Payout: +{payout} coins\n" +
-                     $"Total Balance: {totalCoins} coins");
+            uiManager.ShowWin(payout, firstSymbol.symbolName, matchCount);
+            uiManager.UpdateBalance(totalCoins);
         }
         else
         {
-            Debug.Log($"No Win\nTotal Balance: {totalCoins} coins");
+            uiManager.ShowLoss(betAmount);
         }
     }
 }
